@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: team-project-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: interview_team_project
+    ports:
+      # Exposed so you can also run `npx prisma migrate dev` / `studio` from your host.
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d interview_team_project"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    # Debian-based on purpose. Do NOT switch to -alpine: Next.js (swc), Tailwind
+    # (lightningcss) and the Prisma engine all resolve to glibc builds here, and
+    # the musl Alpine image cannot load them, so `next dev` never starts.
+    image: node:22
+    container_name: team-project-app
+    # Left off on purpose: if startup fails, the container should stop so you can
+    # read the error, instead of restarting forever and looking healthy.
+    restart: "no"
+    working_dir: /app
+    # Install deps, apply migrations, then start Next.js in dev mode.
+    command: sh -c "npm install && npx prisma migrate deploy && npm run dev"
+    environment:
+      # Inside the network the database host is the service name `postgres`, not localhost.
+      # A real env var wins over the .env file, so .env stays correct for host-side commands.
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/interview_team_project?schema=public
+      NODE_ENV: development
+      # Uncomment on macOS / Windows if file changes do not trigger a reload:
+      # WATCHPACK_POLLING: "true"
+      # CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      # Live code reload: your local files are mounted into the container.
+      - .:/app
+      # Keep container-built node_modules and .next out of your host folder.
+      - app-node-modules:/app/node_modules
+      - app-next-cache:/app/.next
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  app-node-modules:
+  app-next-cache:
