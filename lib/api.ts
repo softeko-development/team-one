@@ -66,9 +66,12 @@ function normalizeFieldErrors(errors: ApiErrorPayload["errors"]) {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
+  const url = apiUrl(path);
 
   try {
-    response = await fetch(apiUrl(path), {
+    console.log("API request:", init?.method ?? "GET", url, init?.body ?? null);
+
+    response = await fetch(url, {
       ...init,
       headers: {
         "Content-Type": "application/json",
@@ -76,8 +79,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       },
     });
   } catch {
+    console.error("API network error:", init?.method ?? "GET", url);
     throw new ApiError("Unable to reach the post service. Please try again.", 0);
   }
+
+  console.log("API response status:", response.status, response.statusText, url);
 
   if (!response.ok) {
     let payload: ApiErrorPayload = {};
@@ -87,6 +93,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       // Some APIs return an empty body for failures.
     }
+
+    console.error("API error response:", response.status, payload);
 
     const message =
       payload.message ??
@@ -103,6 +111,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   const text = await response.text();
+
+  console.log("API response body:", text);
 
   if (!text) {
     return undefined as T;

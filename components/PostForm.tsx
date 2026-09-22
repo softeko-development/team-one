@@ -3,6 +3,11 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useState, useTransition } from "react";
 import { ApiError, createPost, Post, PostPayload, updatePost } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 type FieldErrors = Partial<Record<keyof PostPayload, string>>;
 
@@ -28,7 +33,15 @@ function validatePost(values: PostPayload) {
   return errors;
 }
 
-export default function PostForm({ post }: { post?: Post }) {
+export default function PostForm({
+  post,
+  onCancel,
+  onSuccess,
+}: {
+  post?: Post;
+  onCancel?: () => void;
+  onSuccess?: (post: Post) => void;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [values, setValues] = useState<PostPayload>({
@@ -48,24 +61,37 @@ export default function PostForm({ post }: { post?: Post }) {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    console.log("Post form submit:", values);
 
     const errors = validatePost(values);
     setFieldErrors(errors);
 
     if (Object.keys(errors).length > 0) {
+      console.warn("Post form validation errors:", errors);
       setFormError("Please fix the highlighted fields.");
       return;
     }
 
     startTransition(async () => {
       try {
+        console.log("Post form sending request:", post ? "update" : "create");
+
         const savedPost = post
           ? await updatePost(post.slug, values)
           : await createPost(values);
 
-        router.push(`/posts/${savedPost.slug}`);
+        console.log("Post form response:", savedPost);
+
+        onSuccess?.(savedPost);
+
+        if (!onSuccess) {
+          router.push(`/posts/${savedPost.slug}`);
+        }
+
         router.refresh();
       } catch (error) {
+        console.error("Post form error:", error);
+
         if (error instanceof ApiError) {
           setFormError(error.message);
           setFieldErrors(error.fieldErrors as FieldErrors);
@@ -86,72 +112,68 @@ export default function PostForm({ post }: { post?: Post }) {
       ) : null}
 
       <div className="grid gap-2">
-        <label htmlFor="title" className="text-sm font-medium text-zinc-800">
-          Title
-        </label>
-        <input
+        <Label htmlFor="title">Title</Label>
+        <Input
           id="title"
           value={values.title}
           onChange={(event) => updateValue("title", event.target.value)}
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none ring-zinc-900/10 focus:border-zinc-500 focus:ring-4"
         />
         {fieldErrors.title ? <p className="text-sm text-red-600">{fieldErrors.title}</p> : null}
       </div>
 
       <div className="grid gap-2">
-        <label htmlFor="slug" className="text-sm font-medium text-zinc-800">
-          Slug
-        </label>
-        <input
+        <Label htmlFor="slug">Slug</Label>
+        <Input
           id="slug"
           value={values.slug}
           onChange={(event) => updateValue("slug", event.target.value)}
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-sm outline-none ring-zinc-900/10 focus:border-zinc-500 focus:ring-4"
+          className="font-mono"
         />
         {fieldErrors.slug ? <p className="text-sm text-red-600">{fieldErrors.slug}</p> : null}
       </div>
 
       <div className="grid gap-2">
-        <label htmlFor="content" className="text-sm font-medium text-zinc-800">
-          Content
-        </label>
-        <textarea
+        <Label htmlFor="content">Content</Label>
+        <Textarea
           id="content"
           value={values.content}
           onChange={(event) => updateValue("content", event.target.value)}
           rows={12}
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm leading-6 outline-none ring-zinc-900/10 focus:border-zinc-500 focus:ring-4"
         />
         {fieldErrors.content ? (
           <p className="text-sm text-red-600">{fieldErrors.content}</p>
         ) : null}
       </div>
 
-      <label className="flex items-center gap-3 text-sm font-medium text-zinc-800">
-        <input
-          type="checkbox"
+      <Label className="flex items-center gap-3">
+        <Checkbox
           checked={values.published}
           onChange={(event) => updateValue("published", event.target.checked)}
-          className="size-4 rounded border-zinc-300"
         />
         Published
-      </label>
+      </Label>
 
       <div className="flex flex-wrap gap-3">
-        <button
+        <Button
           type="submit"
           disabled={isPending}
-          className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
         >
           {isPending ? "Saving..." : post ? "Save changes" : "Create post"}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          onClick={() => router.back()}
-          className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-100"
+          variant="outline"
+          onClick={() => {
+            if (onCancel) {
+              onCancel();
+              return;
+            }
+
+            router.back();
+          }}
         >
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );

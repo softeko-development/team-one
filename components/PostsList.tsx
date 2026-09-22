@@ -4,6 +4,10 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { ApiError, deletePost, getPosts, Post, PostsResponse } from "@/lib/api";
+import PostForm from "@/components/PostForm";
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 const LIMIT = 10;
 
@@ -33,11 +37,14 @@ export default function PostsList() {
   const [isPending, startTransition] = useTransition();
   const [data, setData] = useState<PostsResponse | null>(null);
   const [error, setError] = useState("");
+  const [isCreateOpen, setIsCreateOpen] = useState(searchParams.get("new") === "true");
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [searchText, setSearchText] = useState(searchParams.get("search") ?? "");
 
   const page = Number(searchParams.get("page") ?? "1") || 1;
   const published = searchParams.get("published");
   const search = searchParams.get("search") ?? "";
+  const shouldOpenCreate = searchParams.get("new") === "true";
 
   const queryKey = useMemo(
     () => `${page}:${search}:${published ?? ""}`,
@@ -65,6 +72,12 @@ export default function PostsList() {
   useEffect(() => {
     setSearchText(search);
   }, [search]);
+
+  useEffect(() => {
+    if (shouldOpenCreate) {
+      setIsCreateOpen(true);
+    }
+  }, [shouldOpenCreate]);
 
   useEffect(() => {
     let ignore = false;
@@ -129,19 +142,39 @@ export default function PostsList() {
     });
   }
 
+  async function refreshPosts() {
+    const refreshed = await getPosts({
+      page,
+      limit: LIMIT,
+      search,
+      published: published ?? undefined,
+    });
+    setData(refreshed);
+  }
+
   const posts = data?.posts ?? [];
   const isLoading = !data && !error;
   const totalPages = data?.totalPages ?? 1;
+  const isPostModalOpen = isCreateOpen || editingPost !== null;
+
+  function closePostModal() {
+    setIsCreateOpen(false);
+    setEditingPost(null);
+
+    if (shouldOpenCreate) {
+      setQuery({ new: null });
+    }
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 border-b border-zinc-200 pb-5 md:flex-row md:items-center md:justify-between">
         <div className="flex flex-1 flex-col gap-3 sm:flex-row">
-          <input
+          <Input
             value={searchText}
             onChange={(event) => setSearchText(event.target.value)}
             placeholder="Search by title"
-            className="min-h-10 flex-1 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none ring-zinc-900/10 focus:border-zinc-500 focus:ring-4"
+            className="flex-1"
           />
           <select
             value={published ?? ""}
@@ -156,13 +189,44 @@ export default function PostsList() {
             <option value="false">Unpublished</option>
           </select>
         </div>
-        <Link
-          href="/posts/new"
-          className="inline-flex min-h-10 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+        <Button
+          type="button"
+          onClick={() => {
+            setIsCreateOpen(true);
+          }}
+          className="w-full md:w-auto"
         >
           New post
-        </Link>
+        </Button>
       </div>
+
+      <Dialog
+        open={isPostModalOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            closePostModal();
+          }
+        }}
+        title={editingPost ? "Edit post" : "New post"}
+        description={
+          editingPost
+            ? "Update this post and keep its slug, content, and status in sync."
+            : "Create a post and publish it now or save it as unpublished."
+        }
+      >
+        <PostForm
+          key={editingPost?.id ?? "new-post"}
+          post={editingPost ?? undefined}
+          onCancel={closePostModal}
+          onSuccess={(post) => {
+            closePostModal();
+            refreshPosts().catch(() => {
+              setError("Post saved, but the list could not refresh.");
+            });
+            router.push(`/posts/${post.slug}`);
+          }}
+        />
+      </Dialog>
 
       <div className="flex items-center justify-between text-sm text-zinc-600">
         <span>
@@ -217,20 +281,23 @@ export default function PostsList() {
                   <p className="mt-3 text-xs text-zinc-500">Updated {formatDate(post.updatedAt)}</p>
                 </Link>
                 <div className="flex items-start gap-2">
-                  <Link
-                    href={`/posts/${post.slug}/edit`}
-                    className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-100"
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setEditingPost(post)}
+                    className="min-h-0 px-3 py-2"
                   >
                     Edit
-                  </Link>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="destructive"
                     onClick={() => handleDelete(post)}
                     disabled={isPending}
-                    className="rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="min-h-0 px-3 py-2"
                   >
                     Delete
-                  </button>
+                  </Button>
                 </div>
               </article>
             ))}
@@ -239,25 +306,25 @@ export default function PostsList() {
       ) : null}
 
       <div className="flex items-center justify-between gap-3">
-        <button
+        <Button
           type="button"
+          variant="outline"
           disabled={page <= 1}
           onClick={() => setQuery({ page: String(page - 1) })}
-          className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Previous
-        </button>
+        </Button>
         <span className="text-sm text-zinc-600">
           Page {page} of {totalPages}
         </span>
-        <button
+        <Button
           type="button"
+          variant="outline"
           disabled={page >= totalPages}
           onClick={() => setQuery({ page: String(page + 1) })}
-          className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Next
-        </button>
+        </Button>
       </div>
     </div>
   );
