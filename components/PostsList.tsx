@@ -38,7 +38,7 @@ export default function PostsList() {
   const [isPending, startTransition] = useTransition();
   const [data, setData] = useState<PostsResponse | null>(null);
   const [error, setError] = useState("");
-  const [isCreateOpen, setIsCreateOpen] = useState(searchParams.get("new") === "true");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [searchText, setSearchText] = useState(searchParams.get("search") ?? "");
 
@@ -71,22 +71,12 @@ export default function PostsList() {
   );
 
   useEffect(() => {
-    setSearchText(search);
-  }, [search]);
-
-  useEffect(() => {
-    if (shouldOpenCreate) {
-      setIsCreateOpen(true);
-    }
-  }, [shouldOpenCreate]);
-
-  useEffect(() => {
     let ignore = false;
-    setError("");
 
     getPosts({ page, limit: LIMIT, search, published: published ?? undefined })
       .then((postsData) => {
         if (!ignore) {
+          setError("");
           setData(postsData);
         }
       })
@@ -156,7 +146,7 @@ export default function PostsList() {
   const posts = data?.posts ?? [];
   const isLoading = !data && !error;
   const totalPages = data?.totalPages ?? 1;
-  const isPostModalOpen = isCreateOpen || editingPost !== null;
+  const isPostModalOpen = shouldOpenCreate || isCreateOpen || editingPost !== null;
 
   function closePostModal() {
     setIsCreateOpen(false);
