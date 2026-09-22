@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import { ApiError, deletePost, getPosts, Post, PostsResponse } from "@/lib/api";
+import { ApiError, deletePost, getPosts } from "@/lib/api";
 import PostForm from "@/components/PostForm";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Post, PostsResponse } from "@/lib/type";
 
 const LIMIT = 10;
 

@@ -2,33 +2,36 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState, useTransition } from "react";
-import { ApiError, createPost, Post, PostPayload, updatePost } from "@/lib/api";
+import { ApiError, createPost, updatePost } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Post, PostPayload, postFormSchema } from "@/lib/type";
 
 type FieldErrors = Partial<Record<keyof PostPayload, string>>;
 
-const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
 function validatePost(values: PostPayload) {
   const errors: FieldErrors = {};
+  const result = postFormSchema.safeParse(values);
 
-  if (!values.title.trim()) {
-    errors.title = "Title is required.";
+  if (result.success) {
+    return errors;
   }
 
-  if (!values.slug.trim()) {
-    errors.slug = "Slug is required.";
-  } else if (!slugPattern.test(values.slug)) {
-    errors.slug = "Use lowercase letters, numbers, and single hyphens only.";
-  }
+  result.error.issues.forEach((issue) => {
+    const field = issue.path[0];
 
-  if (!values.content.trim()) {
-    errors.content = "Content is required.";
-  }
+    if (
+      field === "title" ||
+      field === "slug" ||
+      field === "content" ||
+      field === "published"
+    ) {
+      errors[field] = issue.message;
+    }
+  });
 
   return errors;
 }

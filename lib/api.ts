@@ -1,27 +1,5 @@
-export type Post = {
-  id: string;
-  title: string;
-  slug: string;
-  content: string;
-  published: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type PostPayload = {
-  title: string;
-  slug: string;
-  content: string;
-  published: boolean;
-};
-
-export type PostsResponse = {
-  posts: Post[];
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-};
+import { Post, PostPayload, PostsResponse } from "@/lib/type";
+export type { Post, PostPayload, PostsResponse } from "@/lib/type";
 
 type ApiErrorPayload = {
   message?: string;

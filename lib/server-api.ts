@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import "server-only";
-import { ApiError, Post } from "@/lib/api";
+import { ApiError } from "@/lib/api";
+import { Post } from "@/lib/type";
 
 async function serverUrl(path: string) {
   const configuredUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
